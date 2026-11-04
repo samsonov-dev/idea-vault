@@ -2,10 +2,6 @@ name: Deploy to Cloudflare
 on:
   workflow_dispatch:
     inputs:
-      hostname:
-        description: "Protected hostname (e.g. idea.example.com)"
-        required: true
-        type: string
       d1_database_id:
         description: "Existing Cloudflare D1 database UUID"
         required: true
@@ -34,7 +30,7 @@ jobs:
       CF_ACCESS_TEAM_DOMAIN: ${{ vars.CF_ACCESS_TEAM_DOMAIN }}
       CF_ACCESS_AUD: ${{ vars.CF_ACCESS_AUD }}
       OWNER_EMAIL: ${{ vars.OWNER_EMAIL }}
-      HOSTNAME: ${{ inputs.hostname }}
+      HOSTNAME: idea.samsonov-dev.com
       DATABASE_ID: ${{ inputs.d1_database_id }}
     steps:
       - uses: actions/checkout@v4
