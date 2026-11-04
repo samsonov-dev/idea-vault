@@ -1,5 +1,9 @@
 name: Deploy to Cloudflare
 on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'README.md'
   workflow_dispatch:
     inputs:
       access_ready:
@@ -17,7 +21,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: inputs.access_ready == true
+    if: github.event_name == 'push' || inputs.access_ready == true
     runs-on: ubuntu-latest
     environment: production
     env:
