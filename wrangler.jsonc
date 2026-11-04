@@ -7,7 +7,7 @@
     {
       "binding": "DB",
       "database_name": "idea-vault",
-      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "database_id": "d3815929-7d2d-499d-8637-92dfda9bd1d1",
       "migrations_dir": "migrations"
     }
   ],
