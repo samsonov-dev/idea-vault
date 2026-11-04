@@ -1,0 +1,77 @@
+name: Deploy to Cloudflare
+on:
+  workflow_dispatch:
+    inputs:
+      hostname:
+        description: "Protected hostname (e.g. idea.example.com)"
+        required: true
+        type: string
+      d1_database_id:
+        description: "Existing Cloudflare D1 database UUID"
+        required: true
+        type: string
+      access_ready:
+        description: "I configured Cloudflare Access for this hostname and verified the owner-only policy"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: idea-vault-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: inputs.access_ready == true
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CF_ACCESS_TEAM_DOMAIN: ${{ vars.CF_ACCESS_TEAM_DOMAIN }}
+      CF_ACCESS_AUD: ${{ vars.CF_ACCESS_AUD }}
+      OWNER_EMAIL: ${{ vars.OWNER_EMAIL }}
+      HOSTNAME: ${{ inputs.hostname }}
+      DATABASE_ID: ${{ inputs.d1_database_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate deployment configuration
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$CF_ACCESS_TEAM_DOMAIN"
+          test -n "$CF_ACCESS_AUD"
+          test -n "$OWNER_EMAIL"
+          [[ "$HOSTNAME" =~ ^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+$ ]]
+          [[ "$DATABASE_ID" =~ ^[0-9a-fA-F-]{36}$ ]]
+          [[ "$CF_ACCESS_TEAM_DOMAIN" =~ ^https://[a-zA-Z0-9-]+\.cloudflareaccess\.com/?$ ]]
+      - name: Install and validate
+        run: |
+          npm install --no-audit --no-fund
+          npm run typecheck
+          npm test
+          npm run build
+      - name: Configure production bindings
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const config = JSON.parse(fs.readFileSync('wrangler.jsonc', 'utf8'));
+          config.d1_databases[0].database_id = process.env.DATABASE_ID;
+          config.routes = [{ pattern: process.env.HOSTNAME, custom_domain: true }];
+          config.vars = {
+            CF_ACCESS_TEAM_DOMAIN: process.env.CF_ACCESS_TEAM_DOMAIN,
+            CF_ACCESS_AUD: process.env.CF_ACCESS_AUD,
+            OWNER_EMAIL: process.env.OWNER_EMAIL,
+          };
+          fs.writeFileSync('wrangler.jsonc', JSON.stringify(config, null, 2));
+          NODE
+      - name: Apply database migrations
+        run: npx wrangler d1 migrations apply idea-vault --remote
+      - name: Deploy
+        run: npx wrangler deploy
