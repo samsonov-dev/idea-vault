@@ -1,5 +1,6 @@
 export interface Env {
   DB: D1Database;
+  ASSETS: Fetcher;
   CF_ACCESS_TEAM_DOMAIN: string;
   CF_ACCESS_AUD: string;
   OWNER_EMAIL: string;
@@ -44,29 +45,20 @@ async function authenticated(request: Request, env: Env): Promise<boolean> {
   } catch { return false; }
 }
 
-const page = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Idea Vault</title><style>
-body{font:16px system-ui;max-width:800px;margin:3rem auto;padding:0 1rem;background:#f5f6f9;color:#18202e}
-form,article{background:white;border:1px solid #d8dce5;border-radius:12px;padding:1rem;margin:1rem 0}
-input,textarea,select,button{font:inherit;padding:.65rem;border:1px solid #c8ccd5;border-radius:7px}
-input,textarea{width:100%;box-sizing:border-box;margin:.4rem 0}
-button{background:#24324b;color:white;cursor:pointer}
-article p{white-space:pre-wrap;overflow-wrap:anywhere}#error{color:#b91c1c}
-</style></head><body><h1>Idea Vault</h1><p>Your private idea inbox</p>
-<form id="create"><input id="title" maxlength="200" required placeholder="Idea title"><textarea id="description" maxlength="10000" placeholder="Details"></textarea><select id="priority"><option value="medium">Medium</option><option value="low">Low</option><option value="high">High</option></select><input id="tags" placeholder="Tags (comma separated)"><button>Add idea</button></form>
-<div id="error" role="alert"></div><main id="ideas"></main>
-<script>
-const statuses=['inbox','refine','ready','progress','done'];
-const root=document.getElementById('ideas'),error=document.getElementById('error');
-async function api(path,opts={}){const res=await fetch(path,{...opts,headers:{'content-type':'application/json',...opts.headers}});const body=await res.json();if(!res.ok)throw Error(body.error||'Request failed');return body}
-async function load(){try{error.textContent='';const ideas=await api('/api/ideas');root.replaceChildren();for(const idea of ideas){const card=document.createElement('article'),heading=document.createElement('h3');heading.textContent=idea.title;card.append(heading);if(idea.description){const p=document.createElement('p');p.textContent=idea.description;card.append(p)}const select=document.createElement('select');for(const s of statuses){const option=document.createElement('option');option.value=s;option.textContent=s;option.selected=s===idea.status;select.append(option)}select.onchange=async()=>{try{await api('/api/ideas/'+encodeURIComponent(idea.id),{method:'PATCH',body:JSON.stringify({status:select.value})});await load()}catch(e){error.textContent=e.message}};card.append(select);const meta=document.createElement('small');meta.textContent='Priority: '+idea.priority+' | Tags: '+JSON.parse(idea.tags||'[]').join(', ');card.append(meta);const edit=document.createElement('button');edit.textContent='Edit';edit.onclick=async()=>{const title=prompt('Title',idea.title);if(title===null)return;const description=prompt('Description',idea.description);if(description===null)return;const priority=prompt('Priority: low, medium, high',idea.priority);if(priority===null)return;const tags=prompt('Tags (comma separated)',JSON.parse(idea.tags||'[]').join(', '));if(tags===null)return;try{await api('/api/ideas/'+idea.id,{method:'PATCH',body:JSON.stringify({title,description,priority,tags:tags.split(',').map(t=>t.trim()).filter(Boolean)})});await load()}catch(e){error.textContent=e.message}};card.append(edit);const del=document.createElement('button');del.textContent='Delete';del.onclick=async()=>{if(!confirm('Delete this idea permanently?'))return;try{await api('/api/ideas/'+idea.id,{method:'DELETE'});await load()}catch(e){error.textContent=e.message}};card.append(del);root.append(card)}}catch(e){error.textContent=e.message}}
-document.getElementById('create').onsubmit=async e=>{e.preventDefault();try{await api('/api/ideas',{method:'POST',body:JSON.stringify({title:document.getElementById('title').value,description:document.getElementById('description').value,priority:document.getElementById('priority').value,tags:document.getElementById('tags').value.split(',').map(t=>t.trim()).filter(Boolean)})});e.target.reset();await load()}catch(e){error.textContent=e.message}};load();
-</script></body></html>`;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (!await authenticated(request, env)) return respond({ error: 'Unauthorized' }, 401);
     const path = new URL(request.url).pathname;
-    if (request.method === 'GET' && path === '/') return new Response(page, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'" } });
+    if (!path.startsWith('/api/')) {
+      if (request.method !== 'GET' && request.method !== 'HEAD') return respond({ error: 'Method not allowed' }, 405);
+      const response = await env.ASSETS.fetch(request);
+      const headers = new Headers(response.headers);
+      headers.set('cache-control', 'private, no-store');
+      headers.set('x-content-type-options', 'nosniff');
+      headers.set('content-security-policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'");
+      return new Response(response.body, { status: response.status, headers });
+    }
     if (request.method === 'GET' && path === '/api/ideas') {
       const result = await env.DB.prepare('SELECT * FROM ideas ORDER BY updated_at DESC LIMIT 500').all();
       return respond(result.results);
