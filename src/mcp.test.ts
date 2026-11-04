@@ -4,7 +4,7 @@ import { handleMcp, tools } from './mcp';
 const request = (method: string, params?: unknown, id: string | number | undefined = 1) =>
   new Request('https://idea.samsonov-dev.com/mcp', {
     method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
-    body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+    body: JSON.stringify({ jsonrpc: '2.0', ...(id === null ? {} : { id }), method, params }),
   });
 const db = { prepare: vi.fn() } as unknown as D1Database;
 describe('MCP Streamable HTTP endpoint', () => {
