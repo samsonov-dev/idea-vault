@@ -26,3 +26,7 @@ Do not deploy until Access is configured. Agent authentication and MCP are not y
 ## Local development
 
 Run `npm install`, then `npm run db:local` and `npm run dev`. The Worker intentionally denies requests without a valid Cloudflare Access JWT; local development requires a protected Access setup or a dedicated safe development authentication strategy. Do not bypass authentication in production.
+
+## Production hostname
+
+The production application hostname is **https://idea.samsonov-dev.com**. Configure Cloudflare Access for this exact hostname before manually running the deployment workflow. The workflow requires a D1 database UUID and Access readiness confirmation; it does not create the Access policy.
