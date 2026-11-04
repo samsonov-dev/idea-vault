@@ -1,4 +1,5 @@
 import { validateCreate, validatePatch } from './idea-validation';
+import { handleMcp } from './mcp';
 export interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
@@ -47,6 +48,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (!await authenticated(request, env)) return respond({ error: 'Unauthorized' }, 401);
     const path = new URL(request.url).pathname;
+    if (path === '/mcp') return handleMcp(request, env.DB);
     if (!path.startsWith('/api/')) {
       if (request.method !== 'GET' && request.method !== 'HEAD') return respond({ error: 'Method not allowed' }, 405);
       const response = await env.ASSETS.fetch(request);
