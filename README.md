@@ -18,3 +18,11 @@ Cloudflare Access protects the app. The Worker independently validates signed Ac
 8. Deploy: `npm run deploy`.
 
 Do not deploy until Access is configured. Agent authentication and MCP are not yet implemented.
+
+## Frontend architecture agreement (ADR-0001)
+
+**Mantine is the primary UI component library.** Prefer Mantine components, hooks, theme tokens, and layouts before creating custom components or writing CSS. Custom components are limited to app-specific composition (such as an idea card or Kanban column); drag-and-drop uses dnd-kit because Mantine does not provide a Kanban DnD primitive. React 19 + Vite builds static assets served through the authenticated Cloudflare Worker. Keep the API and Access JWT validation in the Worker. Never expose D1 or credentials to the browser.
+
+## Local development
+
+Run `npm install`, then `npm run db:local` and `npm run dev`. The Worker intentionally denies requests without a valid Cloudflare Access JWT; local development requires a protected Access setup or a dedicated safe development authentication strategy. Do not bypass authentication in production.
