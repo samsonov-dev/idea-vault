@@ -2,10 +2,6 @@ name: Deploy to Cloudflare
 on:
   workflow_dispatch:
     inputs:
-      d1_database_id:
-        description: "Existing Cloudflare D1 database UUID"
-        required: true
-        type: string
       access_ready:
         description: "I configured Cloudflare Access for this hostname and verified the owner-only policy"
         required: true
@@ -27,11 +23,11 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CF_ACCESS_TEAM_DOMAIN: ${{ vars.CF_ACCESS_TEAM_DOMAIN }}
-      CF_ACCESS_AUD: ${{ vars.CF_ACCESS_AUD }}
-      OWNER_EMAIL: ${{ vars.OWNER_EMAIL }}
+      CF_ACCESS_TEAM_DOMAIN: https://ancient-art-7e0e.cloudflareaccess.com
+      CF_ACCESS_AUD: e050fa4ccaaddc76164c7cb20788e2d3b735bb61b0cd47d5c91019b434a17576
+      OWNER_EMAIL: ssamsonov1998@gmail.com
       HOSTNAME: idea.samsonov-dev.com
-      DATABASE_ID: ${{ inputs.d1_database_id }}
+      DATABASE_ID: d3815929-7d2d-499d-8637-92dfda9bd1d1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
