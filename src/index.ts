@@ -37,7 +37,7 @@ async function authenticated(request: Request, env: Env): Promise<boolean> {
       if (!Array.isArray(jwks.keys)) return false;
       cache = { url, keys: jwks.keys, expires: now + 300 };
     }
-    const jwk = cache.keys.find(k => k.kid === header.kid && k.kty === 'RSA');
+    const jwk = cache.keys.find(k => ('kid' in k) && k.kid === header.kid && k.kty === 'RSA');
     if (!jwk) return false;
     const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
     const signature = Uint8Array.from(atob(parts[2].replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
@@ -64,10 +64,10 @@ export default {
       return respond(result.results);
     }
     if (request.method === 'POST' && path === '/api/ideas') {
-      const body = await request.json().catch(() => null) as { title?: unknown; description?: unknown; priority?: unknown; tags?: unknown } | null;
-      if (!body || typeof body.title !== 'string' || !body.title.trim() || body.title.length > 200 || (body.description !== undefined && (typeof body.description !== 'string' || body.description.length > 10000)) || (body.priority !== undefined && !priorities.includes(body.priority as typeof priorities[number])) || (body.tags !== undefined && !validTags(body.tags))) return respond({ error: 'Invalid input' }, 400);
+      const body = await request.json().catch(() => null) as { title?: unknown; description?: unknown; priority?: unknown; tags?: unknown; status?: unknown } | null;
+      if (!body || typeof body.title !== 'string' || !body.title.trim() || body.title.length > 200 || (body.description !== undefined && (typeof body.description !== 'string' || body.description.length > 10000)) || (body.priority !== undefined && !priorities.includes(body.priority as typeof priorities[number])) || (body.status !== undefined && !statuses.includes(body.status as Status)) || (body.tags !== undefined && !validTags(body.tags))) return respond({ error: 'Invalid input' }, 400);
       const id = crypto.randomUUID();
-      await env.DB.prepare('INSERT INTO ideas (id,title,description,priority,tags) VALUES (?,?,?,?,?)').bind(id,body.title.trim(),body.description ?? '',body.priority ?? 'medium',JSON.stringify(body.tags ?? [])).run();
+      await env.DB.prepare('INSERT INTO ideas (id,title,description,status,priority,tags) VALUES (?,?,?,?,?,?)').bind(id,body.title.trim(),body.description ?? '',body.status ?? 'inbox',body.priority ?? 'medium',JSON.stringify(body.tags ?? [])).run();
       return respond({ id }, 201);
     }
     const match = /^\/api\/ideas\/([a-f0-9-]{36})$/.exec(path);
