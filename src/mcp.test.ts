@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { handleMcp, tools } from './mcp';
 
-const request = (method: string, params?: unknown, id: string | number | undefined = 1) =>
+const request = (method: string, params?: unknown, id: string | number | null = 1) =>
   new Request('https://idea.samsonov-dev.com/mcp', {
     method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
     body: JSON.stringify({ jsonrpc: '2.0', ...(id === null ? {} : { id }), method, params }),
