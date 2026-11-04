@@ -30,6 +30,7 @@ jobs:
       CF_ACCESS_TEAM_DOMAIN: https://ancient-art-7e0e.cloudflareaccess.com
       CF_ACCESS_AUD: e050fa4ccaaddc76164c7cb20788e2d3b735bb61b0cd47d5c91019b434a17576
       OWNER_EMAIL: ssamsonov1998@gmail.com
+      CF_ACCESS_SERVICE_TOKEN_ID: ${{ vars.CF_ACCESS_SERVICE_TOKEN_ID }}
       HOSTNAME: idea.samsonov-dev.com
       DATABASE_ID: d3815929-7d2d-499d-8637-92dfda9bd1d1
     steps:
@@ -64,6 +65,7 @@ jobs:
             CF_ACCESS_TEAM_DOMAIN: process.env.CF_ACCESS_TEAM_DOMAIN,
             CF_ACCESS_AUD: process.env.CF_ACCESS_AUD,
             OWNER_EMAIL: process.env.OWNER_EMAIL,
+            ...(process.env.CF_ACCESS_SERVICE_TOKEN_ID ? { CF_ACCESS_SERVICE_TOKEN_ID: process.env.CF_ACCESS_SERVICE_TOKEN_ID } : {}),
           };
           fs.writeFileSync('wrangler.jsonc', JSON.stringify(config, null, 2));
           NODE
