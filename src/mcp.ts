@@ -1,3 +1,4 @@
+import type { RequestMetrics } from './observability';
 import { isRecord, validateCreate, validatePatch } from './idea-validation';
 
 type Database = D1Database;
@@ -77,7 +78,7 @@ export async function callTool(db: Database, name: string, args: unknown) {
 const rpcError = (id: RpcId, code: number, message: string) => ({ jsonrpc: '2.0', id, error: { code, message } });
 const rpcResult = (id: RpcId, result: unknown) => ({ jsonrpc: '2.0', id, result });
 const headers = { 'content-type': 'application/json', 'cache-control': 'no-store', 'mcp-protocol-version': protocol };
-export async function handleMcp(request: Request, db: Database): Promise<Response> {
+export async function handleMcp(request: Request, db: Database, metrics?: RequestMetrics): Promise<Response> {
   if (request.method === 'GET') return new Response(null, { status: 405, headers: { Allow: 'POST, DELETE' } });
   if (request.method === 'DELETE') return new Response(null, { status: 204 });
   if (request.method !== 'POST') return new Response(null, { status: 405, headers: { Allow: 'POST, DELETE' } });
@@ -88,6 +89,9 @@ export async function handleMcp(request: Request, db: Database): Promise<Respons
   catch { return Response.json(rpcError(null,-32700,'Parse error'), { status: 400, headers }); }
   if (!isRecord(data) || data.jsonrpc !== '2.0' || typeof data.method !== 'string' || (data.id !== undefined && data.id !== null && typeof data.id !== 'string' && typeof data.id !== 'number')) return Response.json(rpcError(null,-32600,'Invalid request'), { status: 400, headers });
   const rpc = data as RpcRequest;
+  // Only known protocol/tool names enter telemetry; never log arguments or RPC IDs.
+  const method = ['initialize', 'ping', 'tools/list', 'tools/call', 'notifications/initialized'].includes(rpc.method) ? rpc.method : 'unknown';
+  metrics?.log({ event: 'mcp', method });
   if (rpc.id === undefined) return new Response(null, { status: 202, headers });
   const id = rpc.id;
   try {
@@ -96,10 +100,18 @@ export async function handleMcp(request: Request, db: Database): Promise<Respons
     if (rpc.method === 'tools/list') return Response.json(rpcResult(id, { tools }), { headers });
     if (rpc.method === 'tools/call') {
       if (!isRecord(rpc.params) || typeof rpc.params.name !== 'string') return Response.json(rpcError(id,-32602,'Invalid params'), { headers });
-      return Response.json(rpcResult(id, await callTool(db,rpc.params.name,rpc.params.arguments ?? {})), { headers });
+      const name = rpc.params.name;
+      const args = rpc.params.arguments ?? {};
+      const toolName = tools.some(tool => tool.name === name) ? name : 'unknown';
+      const result = metrics
+        ? await metrics.measure(`tool.${toolName}`, () => callTool(db, name, args))
+        : await callTool(db, name, args);
+      metrics?.log({ event: 'mcp.result', method, tool: toolName, isError: 'isError' in result && result.isError === true });
+      return Response.json(rpcResult(id, result), { headers });
     }
     return Response.json(rpcError(id,-32601,'Method not found'), { headers });
   } catch {
+    metrics?.log({ event: 'mcp.error', method, code: -32603 }, true);
     return Response.json(rpcError(id,-32603,'Internal error'), { headers });
   }
 }
