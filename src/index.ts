@@ -6,6 +6,7 @@ export interface Env {
   CF_ACCESS_TEAM_DOMAIN: string;
   CF_ACCESS_AUD: string;
   OWNER_EMAIL: string;
+  CF_ACCESS_SERVICE_TOKEN_ID?: string;
 }
 const respond = (data: unknown, status = 200) => Response.json(data, { status, headers: { 'cache-control': 'no-store' } });
 const decode = (value: string) => JSON.parse(atob(value.replace(/-/g, '+').replace(/_/g, '/')));
@@ -19,14 +20,17 @@ async function authenticated(request: Request, env: Env): Promise<boolean> {
   if (parts.length !== 3) return false;
   try {
     const header = decode(parts[0]) as { alg?: string; kid?: string };
-    const payload = decode(parts[1]) as { iss?: string; aud?: string | string[]; exp?: number; nbf?: number; email?: string };
+    const payload = decode(parts[1]) as { iss?: string; aud?: string | string[]; exp?: number; nbf?: number; email?: string; sub?: string; common_name?: string };
     const domain = env.CF_ACCESS_TEAM_DOMAIN.replace(/\/$/, '');
     const now = Math.floor(Date.now() / 1000);
     if (!/^https:\/\/[a-z0-9-]+\.cloudflareaccess\.com$/i.test(domain)) return false;
     if (header.alg !== 'RS256' || !header.kid || payload.iss !== domain) return false;
     if (!payload.exp || payload.exp <= now || (payload.nbf && payload.nbf > now)) return false;
     if (!(Array.isArray(payload.aud) ? payload.aud : [payload.aud]).includes(env.CF_ACCESS_AUD)) return false;
-    if (payload.email?.toLowerCase() !== env.OWNER_EMAIL.toLowerCase()) return false;
+    const owner = payload.email?.toLowerCase() === env.OWNER_EMAIL.toLowerCase();
+    const service = Boolean(env.CF_ACCESS_SERVICE_TOKEN_ID &&
+      (payload.common_name === env.CF_ACCESS_SERVICE_TOKEN_ID || payload.sub === env.CF_ACCESS_SERVICE_TOKEN_ID));
+    if (!owner && !service) return false;
     const url = domain + '/cdn-cgi/access/certs';
     if (!cache || cache.url !== url || cache.expires <= now) {
       const res = await fetch(url);
