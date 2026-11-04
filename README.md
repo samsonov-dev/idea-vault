@@ -8,7 +8,7 @@ Cloudflare Access protects the app. The Worker independently validates signed Ac
 
 ## Setup
 
-1. Install dependencies: `npm install`
+1. Use Node.js 26.13.0 (see `.node-version`) and install dependencies: `npm ci`
 2. Create D1 database: `npx wrangler d1 create idea-vault`
 3. Replace the placeholder database ID in `wrangler.jsonc`.
 4. Apply migrations: `npm run db:remote`
@@ -25,8 +25,12 @@ Do not deploy until Access is configured. Agent authentication and MCP are not y
 
 ## Local development
 
-Run `npm install`, then `npm run db:local` and `npm run dev`. The Worker intentionally denies requests without a valid Cloudflare Access JWT; local development requires a protected Access setup or a dedicated safe development authentication strategy. Do not bypass authentication in production.
+Use the Node.js version in `.node-version`. Run `npm ci`, then `npm run db:local` and `npm run dev`. The Worker intentionally denies requests without a valid Cloudflare Access JWT; local development requires a protected Access setup or a dedicated safe development authentication strategy. Do not bypass authentication in production.
 
 ## Production hostname
 
 The production application hostname is **https://idea.samsonov-dev.com**. Configure Cloudflare Access for this exact hostname before manually running the deployment workflow. The workflow requires a D1 database UUID and Access readiness confirmation; it does not create the Access policy.
+
+## Dependency updates
+
+Dependabot checks npm dependencies and GitHub Actions every Monday at 09:00 (Asia/Tbilisi). Related Mantine, React, and Vite packages are grouped to keep upgrades compatible. Updates require the existing CI checks before review and merge. Node.js is pinned in `.node-version`; update that file and `engines.node` together when upgrading Node.js.
