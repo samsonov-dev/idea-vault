@@ -1,3 +1,4 @@
+import { RequestMetrics } from './observability';
 import { validateCreate, validatePatch } from './idea-validation';
 import { handleMcp } from './mcp';
 export interface Env {
@@ -49,13 +50,12 @@ async function authenticated(request: Request, env: Env): Promise<'owner' | 'ser
 }
 
 
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const identity = await authenticated(request, env);
+async function routeRequest(request: Request, env: Env, metrics: RequestMetrics): Promise<Response> {
+    const identity = await metrics.measure('auth', () => authenticated(request, env));
     if (!identity) return respond({ error: 'Unauthorized' }, 401);
     const path = new URL(request.url).pathname;
     if (identity === 'service' && path !== '/mcp') return respond({ error: 'Forbidden' }, 403);
-    if (path === '/mcp') return handleMcp(request, env.DB);
+    if (path === '/mcp') return handleMcp(request, env.DB, metrics);
     if (!path.startsWith('/api/')) {
       if (request.method !== 'GET' && request.method !== 'HEAD') return respond({ error: 'Method not allowed' }, 405);
       const response = await env.ASSETS.fetch(request);
@@ -92,5 +92,22 @@ export default {
       return result.meta.changes ? respond({ ok: true }) : respond({ error: 'Not found' },404);
     }
     return respond({ error: 'Not found' }, 404);
+}
+
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const metrics = new RequestMetrics(ctx.tracing);
+    const start = performance.now();
+    const path = new URL(request.url).pathname;
+    const route = path === '/mcp' ? '/mcp' : path === '/api/ideas' ? '/api/ideas'
+      : /^\/api\/ideas\/[^/]+$/.test(path) ? '/api/ideas/:id' : path.startsWith('/api/') ? '/api/unknown' : '/assets';
+    let response: Response;
+    try {
+      response = await metrics.measure('handler', () => routeRequest(request, env, metrics));
+    } catch {
+      // No exception messages: database errors can contain SQL or user data.
+      response = respond({ error: 'Internal error' }, 500);
+    }
+    return metrics.finish(response, request.method, route, performance.now() - start);
   }
 } satisfies ExportedHandler<Env>;
