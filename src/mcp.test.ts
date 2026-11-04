@@ -17,7 +17,7 @@ describe('MCP Streamable HTTP endpoint', () => {
     expect(tools.map(t => t.name)).toContain('create_idea');
   });
   it('acknowledges notifications without a response body', async () => {
-    const response = await handleMcp(request('notifications/initialized', {}, undefined), db);
+    const response = await handleMcp(request('notifications/initialized', {}, null), db);
     expect(response.status).toBe(202);
   });
   it('rejects malformed JSON-RPC and unknown methods', async () => {
