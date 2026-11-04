@@ -1,3 +1,4 @@
+import { validateCreate, validatePatch } from './idea-validation';
 export interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
@@ -5,10 +6,6 @@ export interface Env {
   CF_ACCESS_AUD: string;
   OWNER_EMAIL: string;
 }
-const statuses = ['inbox', 'refine', 'ready', 'progress', 'done'] as const;
-const priorities = ['low', 'medium', 'high'] as const;
-const validTags = (v: unknown): v is string[] => Array.isArray(v) && v.length <= 20 && v.every(t => typeof t === 'string' && t.length > 0 && t.length <= 40);
-type Status = typeof statuses[number];
 const respond = (data: unknown, status = 200) => Response.json(data, { status, headers: { 'cache-control': 'no-store' } });
 const decode = (value: string) => JSON.parse(atob(value.replace(/-/g, '+').replace(/_/g, '/')));
 let cache: { url: string; keys: JsonWebKey[]; expires: number } | undefined;
@@ -64,25 +61,21 @@ export default {
       return respond(result.results);
     }
     if (request.method === 'POST' && path === '/api/ideas') {
-      const body = await request.json().catch(() => null) as { title?: unknown; description?: unknown; priority?: unknown; tags?: unknown; status?: unknown } | null;
-      if (!body || typeof body.title !== 'string' || !body.title.trim() || body.title.length > 200 || (body.description !== undefined && (typeof body.description !== 'string' || body.description.length > 10000)) || (body.priority !== undefined && !priorities.includes(body.priority as typeof priorities[number])) || (body.status !== undefined && !statuses.includes(body.status as Status)) || (body.tags !== undefined && !validTags(body.tags))) return respond({ error: 'Invalid input' }, 400);
+      const body = validateCreate(await request.json().catch(() => null));
+      if (!body) return respond({ error: 'Invalid input' }, 400);
       const id = crypto.randomUUID();
-      await env.DB.prepare('INSERT INTO ideas (id,title,description,status,priority,tags) VALUES (?,?,?,?,?,?)').bind(id,body.title.trim(),body.description ?? '',body.status ?? 'inbox',body.priority ?? 'medium',JSON.stringify(body.tags ?? [])).run();
+      await env.DB.prepare('INSERT INTO ideas (id,title,description,status,priority,tags) VALUES (?,?,?,?,?,?)')
+        .bind(id,body.title,body.description,body.status,body.priority,JSON.stringify(body.tags)).run();
       return respond({ id }, 201);
     }
     const match = /^\/api\/ideas\/([a-f0-9-]{36})$/.exec(path);
     if (match && request.method === 'PATCH') {
-      const body = await request.json().catch(() => null) as Record<string, unknown> | null;
-      if (!body || Object.keys(body).length === 0 || Object.keys(body).some(k => !['title','description','status','priority','tags'].includes(k))) return respond({ error: 'Invalid update' }, 400);
-      if ((body.title !== undefined && (typeof body.title !== 'string' || !body.title.trim() || body.title.length > 200)) ||
-          (body.description !== undefined && (typeof body.description !== 'string' || body.description.length > 10000)) ||
-          (body.status !== undefined && !statuses.includes(body.status as Status)) ||
-          (body.priority !== undefined && !priorities.includes(body.priority as typeof priorities[number])) ||
-          (body.tags !== undefined && !validTags(body.tags))) return respond({ error: 'Invalid input' }, 400);
-      const fields: string[] = [];
-      const values: unknown[] = [];
-      for (const [k,v] of Object.entries(body)) { fields.push(k+'=?'); values.push(k === 'tags' ? JSON.stringify(v) : k === 'title' ? (v as string).trim() : v); }
-      const result = await env.DB.prepare("UPDATE ideas SET "+fields.join(',')+", updated_at=datetime('now') WHERE id=?").bind(...values,match[1]).run();
+      const body = validatePatch(await request.json().catch(() => null));
+      if (!body) return respond({ error: 'Invalid update' }, 400);
+      const fields = Object.keys(body);
+      const values = fields.map(key => key === 'tags' ? JSON.stringify(body[key]) : body[key]);
+      const result = await env.DB.prepare("UPDATE ideas SET "+fields.map(key => key+'=?').join(',')+", updated_at=datetime('now') WHERE id=?")
+        .bind(...values,match[1]).run();
       return result.meta.changes ? respond({ ok: true }) : respond({ error: 'Not found' },404);
     }
     if (match && request.method === 'DELETE') {
