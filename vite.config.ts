@@ -8,21 +8,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       injectRegister: null,
-      includeAssets: ['icon.svg', 'apple-touch-icon.png'],
-      manifest: {
-        name: 'Idea Vault',
-        short_name: 'Idea Vault',
-        description: 'Capture and organize your ideas',
-        display: 'standalone',
-        start_url: '/',
-        scope: '/',
-        theme_color: '#1c7ed6',
-        background_color: '#ffffff',
-        icons: [
-          { src: '/pwa-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-          { src: '/pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
-        ],
-      },
+      includeAssets: ['favicon.svg', 'favicon-96x96.png', 'favicon.ico', 'apple-touch-icon.png', 'web-app-manifest-192x192.png', 'web-app-manifest-512x512.png', 'site.webmanifest'],
+      manifest: false,
       workbox: {
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api(?:\/|$)/],
