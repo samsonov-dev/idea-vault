@@ -1,0 +1,11 @@
+allowBuilds:
+  esbuild: true
+  workerd: true
+
+# Preserve the Mantine versions imported from the existing npm lockfile.
+# Keep pnpm's default release-age protection for all other versions.
+minimumReleaseAgeExclude:
+  - '@mantine/core@9.7.5'
+  - '@mantine/hooks@9.7.5'
+  - '@mantine/notifications@9.7.5'
+  - '@mantine/store@9.7.5'
