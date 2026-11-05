@@ -35,10 +35,11 @@ jobs:
       DATABASE_ID: d3815929-7d2d-499d-8637-92dfda9bd1d1
     steps:
       - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7.1.0
         with:
           node-version-file: '.node-version'
-          cache: npm
+          cache: pnpm
       - name: Validate deployment configuration
         run: |
           test -n "$CLOUDFLARE_API_TOKEN"
@@ -51,10 +52,10 @@ jobs:
           [[ "$CF_ACCESS_TEAM_DOMAIN" =~ ^https://[a-zA-Z0-9-]+\.cloudflareaccess\.com/?$ ]]
       - name: Install and validate
         run: |
-          npm ci --no-audit --no-fund
-          npm run typecheck
-          npm test
-          npm run build
+          pnpm install --frozen-lockfile
+          pnpm run typecheck
+          pnpm test
+          pnpm run build
       - name: Configure production bindings
         run: |
           node --input-type=module <<'NODE'
@@ -71,6 +72,6 @@ jobs:
           fs.writeFileSync('wrangler.jsonc', JSON.stringify(config, null, 2));
           NODE
       - name: Apply database migrations
-        run: npx wrangler d1 migrations apply idea-vault --remote
+        run: pnpm exec wrangler d1 migrations apply idea-vault --remote
       - name: Deploy
-        run: npx wrangler deploy
+        run: pnpm exec wrangler deploy
