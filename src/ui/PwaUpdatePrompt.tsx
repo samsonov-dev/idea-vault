@@ -36,11 +36,11 @@ export function PwaUpdatePrompt({ blocked }: { blocked: boolean }) {
   if (!needRefresh) return null;
 
   return (
-    <Alert title="A new version of Idea Vault is available" color="blue" mb="md">
+    <Alert title="Доступна новая версия «Хранилища идей»" color="blue" mb="md">
       <Text size="sm" mb="sm">
         {blocked
-          ? 'Finish editing or saving your idea before updating.'
-          : 'Update the app to get the latest changes.'}
+          ? 'Завершите редактирование или сохранение идеи перед обновлением.'
+          : 'Обновите приложение, чтобы получить последние изменения.'}
       </Text>
       <Group gap="xs">
         <Button size="xs" disabled={blocked || updating} loading={updating}
@@ -51,10 +51,10 @@ export function PwaUpdatePrompt({ blocked }: { blocked: boolean }) {
               setUpdating(false);
             });
           }}>
-          Update now
+          Обновить сейчас
         </Button>
         <Button size="xs" variant="subtle" onClick={() => setNeedRefresh(false)}>
-          Later
+          Позже
         </Button>
       </Group>
     </Alert>
