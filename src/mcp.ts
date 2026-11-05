@@ -1,3 +1,4 @@
+import { IdeasService } from './backend/ideas-service';
 import type { RequestMetrics } from './observability';
 import { isRecord, validateCreate, validatePatch } from './idea-validation';
 
@@ -29,6 +30,7 @@ const uuid = (value: unknown): value is string => typeof value === 'string' && /
 const success = (data: unknown) => ({ content: [{ type: 'text', text: JSON.stringify(data) }] });
 const failure = (message: string) => ({ content: [{ type: 'text', text: message }], isError: true });
 export async function callTool(db: Database, name: string, args: unknown) {
+  const ideas = new IdeasService(db);
   if (!isRecord(args)) return failure('Expected object arguments');
   if (name === 'list_ideas') {
     if (Object.keys(args).some(k => !['status','priority','query','limit'].includes(k))) return failure('Unknown filter');
@@ -36,42 +38,31 @@ export async function callTool(db: Database, name: string, args: unknown) {
     if (args.priority !== undefined && !['low','medium','high'].includes(String(args.priority))) return failure('Invalid priority');
     if (args.query !== undefined && (typeof args.query !== 'string' || args.query.length > 200)) return failure('Invalid query');
     if (args.limit !== undefined && (!Number.isInteger(args.limit) || (args.limit as number) < 1 || (args.limit as number) > 100)) return failure('Invalid limit');
-    const where: string[] = []; const bindings: (string | number)[] = [];
-    if (args.status) { where.push('status = ?'); bindings.push(args.status as string); }
-    if (args.priority) { where.push('priority = ?'); bindings.push(args.priority as string); }
-    if (args.query) { where.push('(title LIKE ? OR description LIKE ?)'); const q = '%' + (args.query as string).replace(/[\\%_]/g, '\\$&') + '%'; bindings.push(q,q); }
-    const sql = 'SELECT * FROM ideas' + (where.length ? ' WHERE ' + where.join(' AND ') : '') + ' ORDER BY updated_at DESC LIMIT ?';
-    const results = await db.prepare(sql).bind(...bindings, (args.limit as number | undefined) ?? 50).all();
-    return success(results.results);
+    return success(await ideas.list((args.limit as number | undefined) ?? 50, {
+      status: args.status as string | undefined, priority: args.priority as string | undefined,
+      query: args.query as string | undefined,
+    }));
   }
   if (name === 'get_idea') {
     if (!uuid(args.id)) return failure('Invalid id');
-    const result = await db.prepare('SELECT * FROM ideas WHERE id=?').bind(args.id).first();
+    const result = await ideas.get(args.id);
     return result ? success(result) : failure('Idea not found');
   }
   if (name === 'create_idea') {
     const input = validateCreate(args);
     if (!input) return failure('Invalid idea fields');
-    const id = crypto.randomUUID();
-    await db.prepare('INSERT INTO ideas (id,title,description,status,priority,tags) VALUES (?,?,?,?,?,?)')
-      .bind(id,input.title,input.description,input.status,input.priority,JSON.stringify(input.tags)).run();
-    return success({ id, ...input });
+    return success(await ideas.create(input));
   }
   if (name === 'update_idea') {
     if (!uuid(args.id)) return failure('Invalid id');
     const { id, ...patch } = args;
     const input = validatePatch(patch);
     if (!input) return failure('Invalid update fields');
-    const keys = Object.keys(input);
-    const values = keys.map(key => key === 'tags' ? JSON.stringify(input[key]) : input[key]);
-    const result = await db.prepare('UPDATE ideas SET ' + keys.map(k => k + '=?').join(',') + ", updated_at=datetime('now') WHERE id=?")
-      .bind(...values,id).run();
-    return result.meta.changes ? success({ id, updated: true }) : failure('Idea not found');
+    return await ideas.update(id as string, input) ? success({ id, updated: true }) : failure('Idea not found');
   }
   if (name === 'delete_idea') {
     if (!uuid(args.id)) return failure('Invalid id');
-    const result = await db.prepare('DELETE FROM ideas WHERE id=?').bind(args.id).run();
-    return result.meta.changes ? success({ id: args.id, deleted: true }) : failure('Idea not found');
+    return await ideas.delete(args.id) ? success({ id: args.id, deleted: true }) : failure('Idea not found');
   }
   return failure('Unknown tool');
 }

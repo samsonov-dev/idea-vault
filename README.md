@@ -17,7 +17,7 @@ Cloudflare Access protects the app. The Worker independently validates signed Ac
 7. Disable the public `workers.dev` route or protect it equivalently.
 8. Deploy: `npm run deploy`.
 
-Do not deploy until Access is configured. Agent authentication and MCP are not yet implemented.
+Do not deploy until Access is configured. MCP is available at `/mcp`; service identities are restricted to that endpoint.
 
 ## Frontend architecture agreement (ADR-0001)
 
@@ -34,3 +34,19 @@ The production application hostname is **https://idea.samsonov-dev.com**. Config
 ## Dependency updates
 
 Dependabot checks npm dependencies and GitHub Actions every Monday at 09:00 (Asia/Tbilisi). Related Mantine, React, and Vite packages are grouped to keep upgrades compatible. Updates require the existing CI checks before review and merge. Node.js is pinned in `.node-version`; update that file and `engines.node` together when upgrading Node.js.
+
+## Backend architecture
+
+The backend runs on Hono inside the existing Cloudflare Worker. D1, Access policies,
+static asset bindings, and the deployment workflow remain unchanged.
+
+- `src/index.ts`: Worker entry point.
+- `src/backend/app.ts`: Hono routes, authentication middleware, telemetry, and asset serving.
+- `src/backend/auth.ts`: Cloudflare Access JWT verification.
+- `src/backend/ideas-service.ts`: shared D1 operations used by REST and MCP.
+- `src/backend/types.ts`: Worker bindings and request context.
+- `src/mcp.ts`: MCP protocol and tool validation.
+
+REST endpoints and response shapes are preserved, including JSON-encoded tags.
+Every request uses one metrics instance for auth, handler, and MCP operations.
+Failures return sanitized errors; arbitrary paths, SQL errors, and tool inputs are not logged.
