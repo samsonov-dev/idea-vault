@@ -5,6 +5,7 @@ import { notifications } from '@mantine/notifications';
 import { DndContext, PointerSensor, TouchSensor, useDroppable, useDraggable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { normalizeTags, isValidTitle } from './validation';
+import { PwaUpdatePrompt } from './PwaUpdatePrompt';
 import { api, parseTags, statuses, statusNames, type Idea, type Priority, type Status } from './types';
 
 const priorityColor:Record<Priority,string>={low:'gray',medium:'blue',high:'red'};
@@ -40,7 +41,7 @@ export function App(){
  const remove=async()=>{if(!editing||!window.confirm('Delete this idea permanently?'))return;setSaving(true);try{await api('/api/ideas/'+editing,{method:'DELETE'});close();await load();}catch(e){notifications.show({color:'red',message:String(e)})}finally{setSaving(false)}};
  const move=async(e:DragEndEvent)=>{const idea=ideas.find(i=>i.id===e.active.id);const target=e.over?.id as Status|undefined;if(!idea||!target||!statuses.includes(target)||idea.status===target)return;setIdeas(old=>old.map(i=>i.id===idea.id?{...i,status:target}:i));try{await api('/api/ideas/'+idea.id,{method:'PATCH',body:JSON.stringify({status:target})});}catch(err){notifications.show({color:'red',message:String(err)});await load()}};
  return <AppShell header={{height:68}} padding="md"><AppShell.Header><Container size="xl" h="100%"><Group h="100%" justify="space-between"><Title order={3}>Idea Vault</Title><Button onClick={()=>edit()}>+ New idea</Button></Group></Container></AppShell.Header><AppShell.Main><Container size="xl">
- <Stack gap="lg"><Group justify="space-between" align="end"><Box><Title order={2}>Your ideas</Title><Text c="dimmed" size="sm">{ideas.length} saved ideas</Text></Box><SegmentedControl value={view} onChange={setView} data={[{label:'Board',value:'board'},{label:'List',value:'list'}]}/></Group>
+ <Stack gap="lg"><PwaUpdatePrompt blocked={opened || saving} /><Group justify="space-between" align="end"><Box><Title order={2}>Your ideas</Title><Text c="dimmed" size="sm">{ideas.length} saved ideas</Text></Box><SegmentedControl value={view} onChange={setView} data={[{label:'Board',value:'board'},{label:'List',value:'list'}]}/></Group>
  <Group align="end"><TextInput label="Search" placeholder="Search ideas…" value={query} onChange={e=>setQuery(e.currentTarget.value)} style={{flex:'2 1 200px'}}/><Select label="Priority" placeholder="All priorities" clearable value={priorityFilter} onChange={setPriorityFilter} data={['low','medium','high']} style={{flex:'1 1 130px'}}/><MultiSelect label="Tags" placeholder="All tags" data={tags} value={tagFilter} onChange={setTagFilter} searchable clearable style={{flex:'1 1 160px'}}/></Group>
  {loading?<Group justify="center" py="xl"><Loader/></Group>:<DndContext sensors={sensors} onDragEnd={e=>void move(e)}>{view==='board'?<ScrollArea type="auto"><Group align="stretch" wrap="nowrap" gap="sm" pb="md">{statuses.map(s=><Column key={s} status={s} ideas={visible.filter(i=>i.status===s)} onEdit={edit}/>)}</Group></ScrollArea>:<SimpleGrid cols={{base:1,sm:2,lg:3}}>{visible.map(i=><IdeaCard key={i.id} idea={i} onEdit={edit}/>)}</SimpleGrid>}</DndContext>}
  {!loading&&visible.length===0&&<Text c="dimmed" ta="center" py="xl">No matching ideas</Text>}
