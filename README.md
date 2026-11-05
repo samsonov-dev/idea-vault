@@ -27,6 +27,39 @@ Do not deploy until Access is configured. MCP is available at `/mcp`; service id
 
 Use the Node.js version in `.node-version`. Run `pnpm install --frozen-lockfile`, then `pnpm run db:local` and `pnpm run dev`. The Worker intentionally denies requests without a valid Cloudflare Access JWT; local development requires a protected Access setup or a dedicated safe development authentication strategy. Do not bypass authentication in production.
 
+## Браузерные тесты
+
+Первичная установка Chromium: `pnpm exec playwright install chromium`.
+В Linux/CI используйте `pnpm exec playwright install --with-deps chromium`.
+
+```sh
+pnpm run typecheck
+pnpm test
+pnpm run build
+pnpm run test:browser
+```
+
+Playwright сам запускает локальные серверы на портах 4173 и 5174; перед запуском
+они должны быть свободны. После изменения кода заново выполните сборку.
+Основные сценарии работают на сборке для публикации, а проверка ввода текста
+дополнительно запускается в режиме разработки с React StrictMode.
+Запуск только этой проверки: `pnpm run test:browser --project chromium-development`.
+Для наблюдения за браузером добавьте `--headed`.
+
+Тесты проверяют создание и редактирование идеи, отмену, поиск и фильтры,
+а также повторное сохранение после ошибки. Каждый тест отслеживает необработанные
+ошибки JavaScript. API подменяется изолированными данными в памяти: Cloudflare
+Access и D1 в этих тестах не участвуют, рабочие данные не используются.
+Service Worker отключён в тестовом браузере для надёжного перехвата запросов;
+жизненный цикл PWA этим набором не проверяется. `pnpm test` запускает только Vitest.
+
+Отчёт: `pnpm run test:browser:report`. При падении скриншоты и трассировки остаются
+в `output/playwright/results/`; открыть трассировку можно командой
+`pnpm exec playwright show-trace <путь-к-trace.zip>`.
+CI и процесс публикации загружают отчёты в артефакты GitHub Actions на 7 дней,
+включая неуспешные запуски. Падение теста блокирует миграции рабочей БД и деплой
+в процессе публикации; автоматические повторные попытки отключены.
+
 ## Production hostname
 
 The production application hostname is **https://idea.samsonov-dev.com**. Configure Cloudflare Access for this exact hostname before manually running the deployment workflow. The workflow requires a D1 database UUID and Access readiness confirmation; it does not create the Access policy.
