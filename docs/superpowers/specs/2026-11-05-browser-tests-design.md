@@ -1,41 +1,41 @@
-# Browser regression tests
+# Браузерные тесты для защиты от повторных ошибок
 
-## Goal
+## Цель
 
-Catch failures in real user interactions before publication, including the React event lifetime bug that blanks the application when typing into the idea form.
+Выявлять ошибки при реальных действиях пользователя до публикации приложения. В частности, ловить ошибку обращения к событию React после завершения обработчика, из-за которой ввод текста в форму идеи приводит к исчезновению интерфейса.
 
-## Agreed approach
+## Согласованный подход
 
-Use Playwright Test with Chromium and intercepted `/api/ideas` requests. Keep the existing Vitest tests for validation and backend behavior. Browser tests exercise the actual React application without Cloudflare credentials or production data. They do not validate authentication, D1 persistence, or the deployed Worker.
+Использовать Playwright Test с Chromium и перехватом запросов к `/api/ideas`. Сохранить существующие тесты Vitest для валидации и серверной логики. Браузерные тесты работают с настоящим React-приложением без учётных данных Cloudflare и без доступа к рабочим данным. Проверка авторизации, сохранения в D1 и опубликованного Worker в этот набор не входит.
 
-Run the primary suite against a production build served locally by Vite preview. Also run the typing regression against Vite development mode with the existing React StrictMode enabled, so development-only scheduling checks remain covered. Each test receives fresh in-memory API data; mutations update that data and subsequent GET responses. Unknown API requests fail rather than reaching an external service. Verify mutation payloads as well as visible results.
+Основной набор запускать на сборке для публикации, которую локально обслуживает Vite preview. Дополнительно запускать проверку ввода текста в режиме разработки Vite с уже включённым React StrictMode, чтобы охватить особенности выполнения обновлений в этом режиме. Каждый тест получает отдельный набор данных API в памяти. Запросы создания, изменения и удаления обновляют эти данные и последующие ответы GET. Неизвестные запросы API завершаются ошибкой без обращения к внешнему сервису. Проверять как содержимое отправляемых запросов, так и результат на экране.
 
-## Initial scenarios
+## Первые сценарии
 
-1. Create an idea: type title and description character by character, change status and priority, add a tag, save, and verify the resulting card and submitted values.
-2. Edit an existing idea and verify changed values in the card and a reopened form.
-3. Cancel creation and verify that no mutation or card is produced.
-4. Search and filter seeded ideas by priority and tags, then clear filters and verify restoration.
-5. Return an API error on save, verify that an error message appears and form contents survive, then retry successfully.
+1. Создание идеи: посимвольно ввести название и описание, изменить статус и приоритет, добавить тег, сохранить и проверить появившуюся карточку и отправленные значения.
+2. Редактирование существующей идеи: проверить изменённые значения в карточке и после повторного открытия формы.
+3. Отмена создания: убедиться, что запрос на изменение данных не отправлен и карточка не появилась.
+4. Поиск и фильтрация заранее подготовленных идей по приоритету и тегам: сбросить фильтры и проверить восстановление списка.
+5. Ошибка API при сохранении: проверить сообщение об ошибке и сохранность введённых данных, затем успешно повторить сохранение.
 
-The development regression types repeatedly into both text fields and changes both native selects. It verifies field values and that the modal and application remain visible. Prove the regression by temporarily restoring the old handlers, observing failure, restoring the fix, and observing success. Never commit the temporary regression.
+Проверка исходного бага в режиме разработки многократно вводит текст в оба поля и меняет значения обоих выпадающих списков. Она проверяет значения полей, а также видимость модального окна и приложения. Чтобы доказать, что тест обнаруживает ошибку, временно вернуть старые обработчики и убедиться в падении теста, затем восстановить исправление и убедиться в успешном прохождении. Временный возврат ошибки не сохранять в коммите.
 
-## Reliability and diagnostics
+## Надёжность и диагностика
 
-Use accessible labels and roles, scoped to the dialog or card where necessary. Use Playwright assertions to await UI state, without fixed sleeps. Collect uncaught page errors from before navigation and fail the test if any occur. Use isolated browser contexts and deterministic fixtures. Start with a desktop Chromium viewport; cross-browser, mobile, drag-and-drop, screenshot baselines, and PWA lifecycle tests are outside this initial scope.
+Находить элементы по доступным названиям и ролям, при необходимости ограничивая поиск диалогом или карточкой. Ожидать нужного состояния интерфейса с помощью проверок Playwright без фиксированных пауз. Начинать сбор необработанных ошибок страницы до перехода в приложение и считать тест проваленным при их появлении. Использовать изолированные браузерные контексты и заранее определённые тестовые данные. Начать с Chromium и размера окна для настольного компьютера. Другие браузеры, мобильные устройства, перетаскивание карточек, сравнение с эталонными скриншотами и жизненный цикл PWA пока не входят в объём работ.
 
-Retain traces and screenshots for failures and upload reports from GitHub Actions even when tests fail. Do not use retries to turn an initial failure into an accepted successful validation.
+При падениях сохранять трассировки и скриншоты. Загружать отчёты из GitHub Actions даже при неуспешном завершении тестов. Повторные попытки не должны превращать первоначальное падение в успешный результат проверки.
 
-## Commands and integration
+## Команды и интеграция
 
-Expose a documented browser-test command, separate from `pnpm test`. Configure Vitest discovery so it does not collect Playwright specs. Keep generated reports and test artifacts out of Git.
+Добавить и описать отдельную команду запуска браузерных тестов, сохранив `pnpm test` для существующих тестов. Настроить Vitest так, чтобы он не подхватывал тесты Playwright. Исключить создаваемые отчёты и файлы результатов из Git.
 
-Both PR CI and the production deployment workflow install Chromium and run browser tests after the existing typecheck, unit tests, and production build. In the deployment job, browser-test failure must stop execution before remote migrations or deployment. Preserve the existing manually dispatched deployment authorization and configuration validation.
+В CI для pull request и в процессе публикации устанавливать Chromium и запускать браузерные тесты после существующих проверок типов, модульных тестов и сборки. При публикации падение браузерных тестов должно останавливать выполнение до миграций рабочей базы данных и деплоя. Сохранить существующее подтверждение настройки доступа при ручном запуске публикации и проверку конфигурации.
 
-## Acceptance
+## Критерии готовности
 
-- Existing typecheck, build, and Vitest tests pass.
-- All browser scenarios pass locally.
-- The original form handlers make the typing regression fail; fixed handlers pass.
-- CI and deployment both require successful browser checks before publishing.
-- README explains how to install the browser, run tests, and inspect failure reports.
+- Существующие проверки типов, сборка и тесты Vitest проходят.
+- Все браузерные сценарии проходят локально.
+- Со старыми обработчиками формы проверка ввода текста падает, с исправленными — проходит.
+- Браузерные проверки обязательны в CI и перед публикацией; при их падении публикация не выполняется.
+- README объясняет установку браузера, запуск тестов и просмотр отчётов об ошибках.

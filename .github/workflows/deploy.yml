@@ -56,6 +56,18 @@ jobs:
           pnpm run typecheck
           pnpm test
           pnpm run build
+      - name: Install browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Browser tests
+        run: pnpm run test:browser
+      - name: Upload browser reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-tests-deploy
+          path: output/playwright/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Configure production bindings
         run: |
           node --input-type=module <<'NODE'
