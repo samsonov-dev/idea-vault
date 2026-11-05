@@ -8,14 +8,14 @@ Cloudflare Access protects the app. The Worker independently validates signed Ac
 
 ## Setup
 
-1. Use Node.js 26.13.0 (see `.node-version`) and install dependencies: `npm ci`
-2. Create D1 database: `npx wrangler d1 create idea-vault`
+1. Use Node.js 26.13.0 (see `.node-version`) and pnpm 12.16.1 (`npm install --global pnpm@12.16.1`), then install dependencies: `pnpm install --frozen-lockfile`
+2. Create D1 database: `pnpm exec wrangler d1 create idea-vault`
 3. Replace the placeholder database ID in `wrangler.jsonc`.
-4. Apply migrations: `npm run db:remote`
+4. Apply migrations: `pnpm run db:remote`
 5. Configure `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD`, and `OWNER_EMAIL` as Worker environment variables.
 6. Configure a Cloudflare Access self-hosted application for the domain and all paths, allowing only the owner's Google email.
 7. Disable the public `workers.dev` route or protect it equivalently.
-8. Deploy: `npm run deploy`.
+8. Deploy: `pnpm run deploy`.
 
 Do not deploy until Access is configured. MCP is available at `/mcp`; service identities are restricted to that endpoint.
 
@@ -25,7 +25,7 @@ Do not deploy until Access is configured. MCP is available at `/mcp`; service id
 
 ## Local development
 
-Use the Node.js version in `.node-version`. Run `npm ci`, then `npm run db:local` and `npm run dev`. The Worker intentionally denies requests without a valid Cloudflare Access JWT; local development requires a protected Access setup or a dedicated safe development authentication strategy. Do not bypass authentication in production.
+Use the Node.js version in `.node-version`. Run `pnpm install --frozen-lockfile`, then `pnpm run db:local` and `pnpm run dev`. The Worker intentionally denies requests without a valid Cloudflare Access JWT; local development requires a protected Access setup or a dedicated safe development authentication strategy. Do not bypass authentication in production.
 
 ## Production hostname
 
@@ -33,7 +33,7 @@ The production application hostname is **https://idea.samsonov-dev.com**. Config
 
 ## Dependency updates
 
-Dependabot checks npm dependencies and GitHub Actions every Monday at 09:00 (Asia/Tbilisi). Related Mantine, React, and Vite packages are grouped to keep upgrades compatible. Updates require the existing CI checks before review and merge. Node.js is pinned in `.node-version`; update that file and `engines.node` together when upgrading Node.js.
+Dependabot checks pnpm dependencies (using the npm ecosystem) and GitHub Actions every Monday at 09:00 (Asia/Tbilisi). Related Mantine, React, and Vite packages are grouped to keep upgrades compatible. Updates require the existing CI checks before review and merge. Node.js is pinned in `.node-version`; update that file and `engines.node` together when upgrading Node.js.
 
 ## Backend architecture
 

@@ -3,9 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@12.16.1",
   "scripts": {
-    "dev": "npm run build && wrangler dev",
-    "deploy": "npm run build && wrangler deploy",
+    "dev": "pnpm run build && wrangler dev",
+    "deploy": "pnpm run build && wrangler deploy",
     "db:local": "wrangler d1 migrations apply idea-vault --local",
     "db:remote": "wrangler d1 migrations apply idea-vault --remote",
     "typecheck": "tsc --noEmit",
