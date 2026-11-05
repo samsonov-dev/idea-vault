@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Alert, Button, Group, Text } from '@mantine/core';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 
@@ -32,11 +32,6 @@ export function PwaUpdatePrompt({ blocked }: { blocked: boolean }) {
       console.error('PWA registration failed', error);
     },
   });
-
-  useEffect(() => {
-    if (!needRefresh || blocked || updating) return;
-    // Activation is explicitly user-controlled; never interrupt an open editor.
-  }, [needRefresh, blocked, updating]);
 
   if (!needRefresh) return null;
 
