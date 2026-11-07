@@ -29,12 +29,12 @@ function Column({status,ideas,onEdit}:{status:Status;ideas:Idea[];onEdit:(idea:I
  </Paper>;
 }
 export function App(){
- const [ideas,setIdeas]=useState<Idea[]>([]),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false);
+ const [ideas,setIdeas]=useState<Idea[]>([]),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[loadFailed,setLoadFailed]=useState(false);
  const [query,setQuery]=useState(''),[priorityFilter,setPriorityFilter]=useState<string|null>(null),[tagFilter,setTagFilter]=useState<string[]>([]),[view,setView]=useState('board');
  const [newTag,setNewTag]=useState('');
  const [opened,{open,close}]=useDisclosure(false),[editing,setEditing]=useState<string|null>(null),[form,setForm]=useState({...initial});
  const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:8}}),useSensor(TouchSensor,{activationConstraint:{delay:250,tolerance:8}}));
- const load=useCallback(async()=>{try{setIdeas(await api<Idea[]>('/api/ideas'));}catch(e){notifications.show({color:'red',title:'Не удалось загрузить идеи',message:String(e)});}finally{setLoading(false)}},[]);
+ const load=useCallback(async()=>{try{setIdeas(await api<Idea[]>('/api/ideas'));setLoadFailed(false);}catch(e){setLoadFailed(true);notifications.show({color:'red',title:'Не удалось загрузить идеи',message:String(e)});}finally{setLoading(false)}},[]);
  useEffect(()=>{void load()},[load]);
  const tags=useMemo(()=>Array.from(new Set(ideas.flatMap(i=>parseTags(i.tags)))).sort(),[ideas]);
  const visible=useMemo(()=>ideas.filter(i=>(!query || (i.title+' '+i.description).toLowerCase().includes(query.toLowerCase()))&&(!priorityFilter||i.priority===priorityFilter)&&(!tagFilter.length||tagFilter.every(t=>parseTags(i.tags).includes(t)))),[ideas,query,priorityFilter,tagFilter]);
@@ -43,7 +43,7 @@ export function App(){
  const remove=async()=>{if(!editing||!window.confirm('Удалить эту идею навсегда?'))return;setSaving(true);try{await api('/api/ideas/'+editing,{method:'DELETE'});close();await load();}catch(e){notifications.show({color:'red',message:String(e)})}finally{setSaving(false)}};
  const move=async(e:DragEndEvent)=>{const idea=ideas.find(i=>i.id===e.active.id);const target=e.over?.id as Status|undefined;if(!idea||!target||!statuses.includes(target)||idea.status===target)return;setIdeas(old=>old.map(i=>i.id===idea.id?{...i,status:target}:i));try{await api('/api/ideas/'+idea.id,{method:'PATCH',body:JSON.stringify({status:target})});}catch(err){notifications.show({color:'red',message:String(err)});await load()}};
  return <AppShell header={{height:68}} padding="md"><AppShell.Header><Container size="xl" h="100%"><Group h="100%" justify="space-between"><Title order={3}>Хранилище идей</Title><Button onClick={()=>edit()}>+ Новая идея</Button></Group></Container></AppShell.Header><AppShell.Main><Container size="xl">
- <Stack gap="lg"><PwaUpdatePrompt blocked={opened || saving} /><Group justify="space-between" align="end"><Box><Title order={2}>Ваши идеи</Title><Text c="dimmed" size="sm">{ideaCount(ideas.length)}</Text></Box><SegmentedControl value={view} onChange={setView} data={[{label:'Доска',value:'board'},{label:'Список',value:'list'}]}/></Group>
+ <Stack gap="lg"><PwaUpdatePrompt blocked={opened || saving} loadFailed={loadFailed} onRetry={() => {setLoading(true);void load();}} /><Group justify="space-between" align="end"><Box><Title order={2}>Ваши идеи</Title><Text c="dimmed" size="sm">{ideaCount(ideas.length)}</Text></Box><SegmentedControl value={view} onChange={setView} data={[{label:'Доска',value:'board'},{label:'Список',value:'list'}]}/></Group>
  <Group align="end"><TextInput label="Поиск" placeholder="Поиск идей…" value={query} onChange={e=>setQuery(e.currentTarget.value)} style={{flex:'2 1 200px'}}/><Select label="Приоритет" placeholder="Все приоритеты" clearable clearButtonProps={{'aria-label':'Сбросить приоритет'}} value={priorityFilter} onChange={setPriorityFilter} data={priorityOptions} style={{flex:'1 1 130px'}}/><MultiSelect label="Теги" placeholder="Все теги" data={tags} value={tagFilter} onChange={setTagFilter} searchable clearable clearButtonProps={{'aria-label':'Очистить теги'}} style={{flex:'1 1 160px'}}/></Group>
  {loading?<Group justify="center" py="xl"><Loader/></Group>:<DndContext sensors={sensors} onDragEnd={e=>void move(e)}>{view==='board'?<ScrollArea type="auto"><Group align="stretch" wrap="nowrap" gap="sm" pb="md">{statuses.map(s=><Column key={s} status={s} ideas={visible.filter(i=>i.status===s)} onEdit={edit}/>)}</Group></ScrollArea>:<SimpleGrid cols={{base:1,sm:2,lg:3}}>{visible.map(i=><IdeaCard key={i.id} idea={i} onEdit={edit}/>)}</SimpleGrid>}</DndContext>}
  {!loading&&visible.length===0&&<Text c="dimmed" ta="center" py="xl">Идеи не найдены</Text>}
