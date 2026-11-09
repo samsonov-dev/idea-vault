@@ -27,7 +27,7 @@
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "^5.1.0",
     "workbox-window": "^7.4.1",
-    "wrangler": "^4.157.0"
+    "wrangler": "^4.158.0"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
