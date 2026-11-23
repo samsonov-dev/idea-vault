@@ -35,7 +35,7 @@
     "@mantine/core": "^9.7.5",
     "@mantine/hooks": "^9.7.5",
     "@mantine/notifications": "^9.7.5",
-    "hono": "^4.13.16",
+    "hono": "^4.13.19",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
